@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 from codecs import open
 import os
 
-from metrics import __version__
+from metrics_gitinfo import __version__
 here = os.path.abspath(os.path.dirname(__file__))
 
 # Get the long description from the README file
@@ -25,7 +25,7 @@ dependency_links = [x.strip().replace('git+', '') for x in all_reqs if 'git+' no
 setup(
     name='metrics.gitinfo',
     version=__version__,
-    description='metrics.gitinfo is a plugin for the metrics package',
+    description='plugin for the metrics package (extracts changed lines, author, ...)',
     long_description=long_description,
     license='MIT',
     url='https://github.com/markfink/metrics.gitinfo/',
@@ -43,7 +43,7 @@ setup(
     author='Mark Fink',
     install_requires=install_requires,
     dependency_links=dependency_links,
-    author_email='mark@finklabs.de',
+    author_email='mark@mark-fink.de',
     entry_points={
         'metrics.plugin.10': [
             'gitinfo=metrics_gitinfo.gitinfo',
