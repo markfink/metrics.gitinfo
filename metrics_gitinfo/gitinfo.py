@@ -18,14 +18,6 @@ def get_build_processors():
     return [GitMetric]
 
 
-'''
-print (target.committer)
-print (target.committed_datetime)
-print (target.hexsha)
-print (target.summary)
-'''
-
-
 class GitMetric(MetricBase):
     """Extract file changes and build information from git."""
     def __init__(self, context):
@@ -33,23 +25,38 @@ class GitMetric(MetricBase):
         self._context = context
         self.reset()
 
-    def _extract_info(self):
+    def _get_source_target(self):
         repo = Repo('.')
-        # TODO get source sha from last run
-        source_sha = '0f3ea5dbafef04f5f79a4e7b0fbd7c6d12333a4b'
-        source = repo.commit(source_sha)
-        # get last commit
-        #target = repo.commit(target_sha)
+        source = None
         target = repo.head.commit
+        last_build_metrics = self._context.get('last_metrics', {}).get('build', None)
+        if last_build_metrics:
+            if last_build_metrics['sha'] == target.hexsha:
+                # rerun metrics case
+                source = repo.commit(last_build_metrics['sha_start'])
+            else:
+                # found new commit(s) - get sha from last run and use it as source
+                source = repo.commit(last_build_metrics['sha'])
+        return source, target
+
+    def _extract_info(self):
+        source, target = self._get_source_target()
 
         changed_files = {}
-        build_metrics = {}
+        build_metrics = {
+            'committers': [target.committer.name],  # TODO go through all commits
+            'committed_datetime': target.committed_datetime.isoformat(),
+            'committed_ts': target.committed_date,
+            'sha': target.hexsha,
+            'sha_start': source.hexsha,
+            'summary': target.summary,
+        }
 
-        for x in target.diff(source, create_patch=True):
-            added, deleted = parse_diff_lines(x.diff)
-            changed_files[x.b_path] = {'lines_added': added, 'lines_deleted': deleted}
+        if source:
+            for x in target.diff(source, create_patch=True):
+                added, deleted = parse_diff_lines(x.diff)
+                changed_files[x.b_path] = {'lines_added': added, 'lines_deleted': deleted}
 
-        # TODO author etc.
         return changed_files, build_metrics
 
     def reset(self):
@@ -59,7 +66,6 @@ class GitMetric(MetricBase):
 
     def process_file(self, language, key, token_list):
         """extract line changes in git for a given key"""
-        print(key)
         if key in self._changed_files:
             self._metrics = self._changed_files[key]
         else:
