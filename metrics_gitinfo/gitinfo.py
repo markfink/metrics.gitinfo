@@ -4,6 +4,7 @@ from __future__ import unicode_literals, print_function
 
 from metrics.metricbase import MetricBase
 from git import Repo
+from git.exc import InvalidGitRepositoryError
 
 from .git_diff_muncher import parse_diff_lines
 
@@ -20,42 +21,60 @@ def get_build_processors():
 
 class GitMetric(MetricBase):
     """Extract file changes and build information from git."""
+
     def __init__(self, context):
         self.name = 'gitinfo'
         self._context = context
         self.reset()
 
+    def _get_commits_contained(self, repo, source, target):
+        rev = '%s..%s' % (source.hexsha, target.hexsha)
+        commits = repo.iter_commits(rev=rev)
+        return commits
+
     def _get_source_target(self):
         repo = Repo('.')
         source = None
         target = repo.head.commit
-        last_build_metrics = self._context.get('last_metrics', {}).get('build', None)
+        last_build_metrics = self._context.get(
+            'last_metrics', {}).get('build', None)
         if last_build_metrics:
-            if last_build_metrics['sha'] == target.hexsha:
+            if last_build_metrics['sha'] == target.hexsha and \
+                            'sha_start' in last_build_metrics:
                 # rerun metrics case
                 source = repo.commit(last_build_metrics['sha_start'])
             else:
                 # found new commit(s) - get sha from last run and use it as source
                 source = repo.commit(last_build_metrics['sha'])
-        return source, target
+        return repo, source, target
 
     def _extract_info(self):
-        source, target = self._get_source_target()
+        try:
+            repo, source, target = self._get_source_target()
+        except InvalidGitRepositoryError:
+            return [], {}
 
         changed_files = {}
         build_metrics = {
-            'committers': [target.committer.name],  # TODO go through all commits
+            'committers': [target.committer.name],
             'committed_datetime': target.committed_datetime.isoformat(),
             'committed_ts': target.committed_date,
             'sha': target.hexsha,
-            'sha_start': source.hexsha,
             'summary': target.summary,
         }
 
         if source:
             for x in target.diff(source, create_patch=True):
                 added, deleted = parse_diff_lines(x.diff)
-                changed_files[x.b_path] = {'lines_added': added, 'lines_deleted': deleted}
+                changed_files[x.b_path] = {'lines_added': added,
+                                           'lines_deleted': deleted}
+
+            committers = list(set([
+                c.committer.name for c in
+                self._get_commits_contained(repo, source, target)
+            ]))
+            build_metrics['committers'] = committers
+            build_metrics['sha_start'] = source.hexsha
 
         return changed_files, build_metrics
 

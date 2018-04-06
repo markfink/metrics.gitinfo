@@ -22,7 +22,13 @@ for details please see the documentation of metrics.
 The **metrics.gitinfo** package is a plugin for the existing metrics package. 
 
 
-## License
+# Acknowledgements
+
+* for reading the git repo we use GitPython (https://github.com/gitpython-developers/GitPython)
+* to find file changes in the repo we use https://github.com/Bachmann1234/diff-cover
+
+
+# License
 
 Copyright (c) 2018 Mark Fink and others.
 metrics is released under the MIT License (see MIT_LICENSE).
