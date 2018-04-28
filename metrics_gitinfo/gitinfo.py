@@ -63,6 +63,7 @@ class GitMetric(MetricBase):
             'sha': target.hexsha,
             'summary': target.summary,
             'active_branch': repo.active_branch.name,
+            'origin': repo.remotes.origin.url,
         }
 
         if source:
@@ -91,9 +92,10 @@ class GitMetric(MetricBase):
             repo = Repo('.')
             nbr_changes, last_change, nbr_committers = get_file_info(repo, key)
             if last_change:
+                age_days = (self._build_metrics['committed_ts'] - last_change) / 3600.0 / 24.0
                 self._metrics = {
                     'change_frequency': nbr_changes,
-                    'age': last_change - self._build_metrics['committed_ts'],
+                    'age_days': age_days,
                     'committers_count': nbr_committers,
                 }
             if key in self._changed_files:
