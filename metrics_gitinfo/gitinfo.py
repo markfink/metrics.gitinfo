@@ -7,6 +7,7 @@ from git import Repo
 from git.exc import InvalidGitRepositoryError
 
 from .git_diff_muncher import parse_diff_lines
+from .file_info import get_file_info
 
 
 def get_file_processors():
@@ -61,6 +62,7 @@ class GitMetric(MetricBase):
             'committed_ts': target.committed_date,
             'sha': target.hexsha,
             'summary': target.summary,
+            'active_branch': repo.active_branch.name,
         }
 
         if source:
@@ -85,10 +87,19 @@ class GitMetric(MetricBase):
 
     def process_file(self, language, key, token_list):
         """extract line changes in git for a given key"""
-        if key in self._changed_files:
-            self._metrics = self._changed_files[key]
-        else:
-            self._metrics = {}
+        try:
+            repo = Repo('.')
+            nbr_changes, last_change, nbr_committers = get_file_info(repo, key)
+            if last_change:
+                self._metrics = {
+                    'change_frequency': nbr_changes,
+                    'age': last_change - self._build_metrics['committed_ts'],
+                    'committers_count': nbr_committers,
+                }
+            if key in self._changed_files:
+                self._metrics.update(self._changed_files[key])
+        except InvalidGitRepositoryError:
+            pass
 
     def get_metrics(self):
         return self._metrics
